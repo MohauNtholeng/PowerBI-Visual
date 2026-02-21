@@ -203,7 +203,7 @@ export class Visual implements IVisual {
 
         // Variance bubble between the two selected bars
         if (bubbleSettings.show.value && selectedFirst !== selectedSecond) {
-            this.renderVarianceBubble(dataPoints, selectedFirst, selectedSecond, xScale, yScale, bubbleSettings, innerHeight);
+            this.renderVarianceBubble(dataPoints, selectedFirst, selectedSecond, xScale, yScale, bubbleSettings);
         }
     }
 
@@ -213,8 +213,7 @@ export class Visual implements IVisual {
         secondIdx: number,
         xScale: d3.ScaleBand<string>,
         yScale: d3.ScaleLinear<number, number>,
-        bubbleSettings: VisualFormattingSettingsModel["varianceBubbleCard"],
-        innerHeight: number
+        bubbleSettings: VisualFormattingSettingsModel["varianceBubbleCard"]
     ): void {
         const firstBar = dataPoints[firstIdx];
         const secondBar = dataPoints[secondIdx];
