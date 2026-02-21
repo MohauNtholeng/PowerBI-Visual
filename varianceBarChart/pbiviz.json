@@ -1,0 +1,26 @@
+{
+    "visual": {
+        "name": "varianceBarChart",
+        "displayName": "Variance Bar Chart",
+        "guid": "varianceBarChart9F37CF618B4E4144901E79103AB4530A",
+        "visualClassName": "Visual",
+        "version": "1.0.0.0",
+        "description": "A bar chart with a variance percentage bubble between two selected bars",
+        "supportUrl": "https://github.com/MohauNtholeng/PowerBI-Visual",
+        "gitHubUrl": "https://github.com/MohauNtholeng/PowerBI-Visual"
+    },
+    "apiVersion": "5.3.0",
+    "author": {
+        "name": "MohauNtholeng",
+        "email": "mohau@example.com"
+    },
+    "assets": {
+        "icon": "assets/icon.png"
+    },
+    "externalJS": null,
+    "style": "style/visual.less",
+    "capabilities": "capabilities.json",
+    "dependencies": null,
+    "stringResources": [],
+    "version": "1.0.0.0"
+}

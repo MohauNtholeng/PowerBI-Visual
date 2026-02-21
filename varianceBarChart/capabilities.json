@@ -1,0 +1,118 @@
+{
+    "dataRoles": [
+        {
+            "displayName": "Category",
+            "name": "category",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Values",
+            "name": "measure",
+            "kind": "Measure"
+        }
+    ],
+    "objects": {
+        "barSettings": {
+            "properties": {
+                "barColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "selectedBarColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "showDataLabels": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "labelFontSize": {
+                    "type": {
+                        "formatting": {
+                            "fontSize": true
+                        }
+                    }
+                }
+            }
+        },
+        "varianceBubble": {
+            "properties": {
+                "show": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "bubbleColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "negativeBubbleColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "fontSize": {
+                    "type": {
+                        "formatting": {
+                            "fontSize": true
+                        }
+                    }
+                },
+                "firstBarIndex": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "secondBarIndex": {
+                    "type": {
+                        "numeric": true
+                    }
+                }
+            }
+        }
+    },
+    "dataViewMappings": [
+        {
+            "categorical": {
+                "categories": {
+                    "for": {
+                        "in": "category"
+                    },
+                    "dataReductionAlgorithm": {
+                        "top": {}
+                    }
+                },
+                "values": {
+                    "select": [
+                        {
+                            "bind": {
+                                "to": "measure"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "privileges": []
+}
