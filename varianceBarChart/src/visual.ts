@@ -123,11 +123,32 @@ export class Visual implements IVisual {
         const barSettings = settings.barSettingsCard;
         const bubbleSettings = settings.varianceBubbleCard;
 
-        // Determine which bars are "selected" for variance comparison
-        const rawFirst = Math.round(bubbleSettings.firstBarIndex.value) - 1;
-        const rawSecond = Math.round(bubbleSettings.secondBarIndex.value) - 1;
-        const selectedFirst = Math.max(0, Math.min(dataPoints.length - 1, rawFirst));
-        const selectedSecond = Math.max(0, Math.min(dataPoints.length - 1, rawSecond));
+        // Helper to clamp a 1-based index to valid data range
+        const clamp = (raw: number) =>
+            Math.max(0, Math.min(dataPoints.length - 1, Math.round(raw) - 1));
+
+        // Build the list of active variance pairs
+        interface VariancePair { from: number; to: number; }
+        const activePairs: VariancePair[] = [];
+
+        if (bubbleSettings.show.value) {
+            const f = clamp(bubbleSettings.firstBarIndex.value);
+            const t = clamp(bubbleSettings.secondBarIndex.value);
+            if (f !== t) activePairs.push({ from: f, to: t });
+        }
+        if (bubbleSettings.showPair2.value) {
+            const f = clamp(bubbleSettings.pair2FirstBarIndex.value);
+            const t = clamp(bubbleSettings.pair2SecondBarIndex.value);
+            if (f !== t) activePairs.push({ from: f, to: t });
+        }
+        if (bubbleSettings.showPair3.value) {
+            const f = clamp(bubbleSettings.pair3FirstBarIndex.value);
+            const t = clamp(bubbleSettings.pair3SecondBarIndex.value);
+            if (f !== t) activePairs.push({ from: f, to: t });
+        }
+
+        // Collect all bar indices participating in any active pair
+        const highlightedIndices = new Set<number>(activePairs.flatMap(p => [p.from, p.to]));
 
         // Scales
         const xScale = d3.scaleBand()
@@ -172,7 +193,7 @@ export class Visual implements IVisual {
             .attr("y", d => d.value >= 0 ? yScale(d.value) : yScale(0))
             .attr("height", d => Math.abs(yScale(d.value) - yScale(0)))
             .attr("fill", d =>
-                (d.index === selectedFirst || d.index === selectedSecond) && bubbleSettings.show.value
+                highlightedIndices.has(d.index)
                     ? selectedColor
                     : defaultBarColor
             )
@@ -201,10 +222,10 @@ export class Visual implements IVisual {
                 .text(d => d3.format(".2s")(d.value));
         }
 
-        // Variance bubble between the two selected bars
-        if (bubbleSettings.show.value && selectedFirst !== selectedSecond) {
-            this.renderVarianceBubble(dataPoints, selectedFirst, selectedSecond, xScale, yScale, bubbleSettings);
-        }
+        // Render a variance bubble for each active pair
+        activePairs.forEach(pair => {
+            this.renderVarianceBubble(dataPoints, pair.from, pair.to, xScale, yScale, bubbleSettings);
+        });
     }
 
     private renderVarianceBubble(

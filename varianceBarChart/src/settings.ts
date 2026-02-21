@@ -74,12 +74,7 @@ class BarSettingsCard extends FormattingSettingsCard {
  * Variance Bubble Formatting Card
  */
 class VarianceBubbleCard extends FormattingSettingsCard {
-    show = new formattingSettings.ToggleSwitch({
-        name: "show",
-        displayName: "Show Variance Bubble",
-        value: true
-    });
-
+    // Shared appearance settings
     bubbleColor = new formattingSettings.ColorPicker({
         name: "bubbleColor",
         displayName: "Positive Variance Color",
@@ -98,27 +93,78 @@ class VarianceBubbleCard extends FormattingSettingsCard {
         value: 12
     });
 
+    // Pair 1
+    show = new formattingSettings.ToggleSwitch({
+        name: "show",
+        displayName: "Show Variance 1",
+        value: true
+    });
+
     firstBarIndex = new formattingSettings.NumUpDown({
         name: "firstBarIndex",
-        displayName: "First Bar (1-based index)",
+        displayName: "Variance 1 - From Bar",
         value: 1
     });
 
     secondBarIndex = new formattingSettings.NumUpDown({
         name: "secondBarIndex",
-        displayName: "Second Bar (1-based index)",
+        displayName: "Variance 1 - To Bar",
         value: 2
     });
 
+    // Pair 2
+    showPair2 = new formattingSettings.ToggleSwitch({
+        name: "showPair2",
+        displayName: "Show Variance 2",
+        value: false
+    });
+
+    pair2FirstBarIndex = new formattingSettings.NumUpDown({
+        name: "pair2FirstBarIndex",
+        displayName: "Variance 2 - From Bar",
+        value: 2
+    });
+
+    pair2SecondBarIndex = new formattingSettings.NumUpDown({
+        name: "pair2SecondBarIndex",
+        displayName: "Variance 2 - To Bar",
+        value: 3
+    });
+
+    // Pair 3
+    showPair3 = new formattingSettings.ToggleSwitch({
+        name: "showPair3",
+        displayName: "Show Variance 3",
+        value: false
+    });
+
+    pair3FirstBarIndex = new formattingSettings.NumUpDown({
+        name: "pair3FirstBarIndex",
+        displayName: "Variance 3 - From Bar",
+        value: 1
+    });
+
+    pair3SecondBarIndex = new formattingSettings.NumUpDown({
+        name: "pair3SecondBarIndex",
+        displayName: "Variance 3 - To Bar",
+        value: 3
+    });
+
     name: string = "varianceBubble";
-    displayName: string = "Variance Bubble";
+    displayName: string = "Variance Bubbles";
     slices: Array<FormattingSettingsSlice> = [
-        this.show,
         this.bubbleColor,
         this.negativeBubbleColor,
         this.fontSize,
+        this.show,
         this.firstBarIndex,
-        this.secondBarIndex
+        this.secondBarIndex,
+        this.showPair2,
+        this.pair2FirstBarIndex,
+        this.pair2SecondBarIndex,
+        this.showPair3,
+        this.pair3FirstBarIndex,
+        this.pair3SecondBarIndex
     ];
 }
 
