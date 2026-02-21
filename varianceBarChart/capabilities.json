@@ -1,20 +1,20 @@
 {
     "dataRoles": [
         {
-            "displayName": "Category Data",
+            "displayName": "Category",
             "name": "category",
             "kind": "Grouping"
         },
         {
-            "displayName": "Measure Data",
+            "displayName": "Values",
             "name": "measure",
             "kind": "Measure"
         }
     ],
     "objects": {
-        "dataPoint": {
+        "barSettings": {
             "properties": {
-                "defaultColor": {
+                "barColor": {
                     "type": {
                         "fill": {
                             "solid": {
@@ -23,12 +23,37 @@
                         }
                     }
                 },
-                "showAllDataPoints": {
+                "selectedBarColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "showDataLabels": {
                     "type": {
                         "bool": true
                     }
                 },
-                "fill": {
+                "labelFontSize": {
+                    "type": {
+                        "formatting": {
+                            "fontSize": true
+                        }
+                    }
+                }
+            }
+        },
+        "varianceBubble": {
+            "properties": {
+                "show": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "bubbleColor": {
                     "type": {
                         "fill": {
                             "solid": {
@@ -37,16 +62,30 @@
                         }
                     }
                 },
-                "fillRule": {
+                "negativeBubbleColor": {
                     "type": {
-                        "fill": {}
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
                     }
                 },
-                 "fontSize": {
+                "fontSize": {
                     "type": {
                         "formatting": {
                             "fontSize": true
                         }
+                    }
+                },
+                "firstBarIndex": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "secondBarIndex": {
+                    "type": {
+                        "numeric": true
                     }
                 }
             }

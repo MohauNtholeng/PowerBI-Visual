@@ -1,9 +1,47 @@
-p {
-    font-size: 20px;
-    font-weight: bold;
-    em {
-        background: yellow;
-        padding: 5px;
-        
+.varianceBarChart {
+    display: block;
+
+    .bar {
+        transition: opacity 0.2s;
+
+        &:hover {
+            opacity: 0.8;
+            cursor: pointer;
+        }
+    }
+
+    .bar-label {
+        pointer-events: none;
+        font-family: "Segoe UI", sans-serif;
+    }
+
+    .x-axis,
+    .y-axis {
+        font-family: "Segoe UI", sans-serif;
+        font-size: 11px;
+
+        path,
+        line {
+            stroke: #ccc;
+        }
+
+        text {
+            fill: #555;
+        }
+    }
+
+    .variance-bubble-group {
+        .variance-bubble {
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+        }
+
+        .variance-label {
+            font-family: "Segoe UI", sans-serif;
+            pointer-events: none;
+        }
+
+        .variance-connector {
+            opacity: 0.75;
+        }
     }
 }

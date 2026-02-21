@@ -33,51 +33,102 @@ import FormattingSettingsSlice = formattingSettings.Slice;
 import FormattingSettingsModel = formattingSettings.Model;
 
 /**
- * Data Point Formatting Card
+ * Bar Settings Formatting Card
  */
-class DataPointCardSettings extends FormattingSettingsCard {
-    defaultColor = new formattingSettings.ColorPicker({
-        name: "defaultColor",
-        displayName: "Default color",
-        value: { value: "" }
+class BarSettingsCard extends FormattingSettingsCard {
+    barColor = new formattingSettings.ColorPicker({
+        name: "barColor",
+        displayName: "Bar Color",
+        value: { value: "#4472C4" }
     });
 
-    showAllDataPoints = new formattingSettings.ToggleSwitch({
-        name: "showAllDataPoints",
-        displayName: "Show all",
+    selectedBarColor = new formattingSettings.ColorPicker({
+        name: "selectedBarColor",
+        displayName: "Selected Bar Color",
+        value: { value: "#ED7D31" }
+    });
+
+    showDataLabels = new formattingSettings.ToggleSwitch({
+        name: "showDataLabels",
+        displayName: "Show Data Labels",
         value: true
     });
 
-    fill = new formattingSettings.ColorPicker({
-        name: "fill",
-        displayName: "Fill",
-        value: { value: "" }
+    labelFontSize = new formattingSettings.NumUpDown({
+        name: "labelFontSize",
+        displayName: "Label Font Size",
+        value: 11
     });
 
-    fillRule = new formattingSettings.ColorPicker({
-        name: "fillRule",
-        displayName: "Color saturation",
-        value: { value: "" }
+    name: string = "barSettings";
+    displayName: string = "Bar Settings";
+    slices: Array<FormattingSettingsSlice> = [
+        this.barColor,
+        this.selectedBarColor,
+        this.showDataLabels,
+        this.labelFontSize
+    ];
+}
+
+/**
+ * Variance Bubble Formatting Card
+ */
+class VarianceBubbleCard extends FormattingSettingsCard {
+    show = new formattingSettings.ToggleSwitch({
+        name: "show",
+        displayName: "Show Variance Bubble",
+        value: true
+    });
+
+    bubbleColor = new formattingSettings.ColorPicker({
+        name: "bubbleColor",
+        displayName: "Positive Variance Color",
+        value: { value: "#70AD47" }
+    });
+
+    negativeBubbleColor = new formattingSettings.ColorPicker({
+        name: "negativeBubbleColor",
+        displayName: "Negative Variance Color",
+        value: { value: "#FF0000" }
     });
 
     fontSize = new formattingSettings.NumUpDown({
         name: "fontSize",
-        displayName: "Text Size",
+        displayName: "Font Size",
         value: 12
     });
 
-    name: string = "dataPoint";
-    displayName: string = "Data colors";
-    slices: Array<FormattingSettingsSlice> = [this.defaultColor, this.showAllDataPoints, this.fill, this.fillRule, this.fontSize];
+    firstBarIndex = new formattingSettings.NumUpDown({
+        name: "firstBarIndex",
+        displayName: "First Bar (1-based index)",
+        value: 1
+    });
+
+    secondBarIndex = new formattingSettings.NumUpDown({
+        name: "secondBarIndex",
+        displayName: "Second Bar (1-based index)",
+        value: 2
+    });
+
+    name: string = "varianceBubble";
+    displayName: string = "Variance Bubble";
+    slices: Array<FormattingSettingsSlice> = [
+        this.show,
+        this.bubbleColor,
+        this.negativeBubbleColor,
+        this.fontSize,
+        this.firstBarIndex,
+        this.secondBarIndex
+    ];
 }
 
 /**
-* visual settings model class
-*
-*/
+ * Visual settings model class
+ */
 export class VisualFormattingSettingsModel extends FormattingSettingsModel {
-    // Create formatting settings model formatting cards
-    dataPointCard = new DataPointCardSettings();
+    barSettingsCard = new BarSettingsCard();
+    varianceBubbleCard = new VarianceBubbleCard();
 
-    cards = [this.dataPointCard];
+    cards = [this.barSettingsCard, this.varianceBubbleCard];
 }
+

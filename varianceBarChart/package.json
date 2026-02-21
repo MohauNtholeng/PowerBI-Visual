@@ -1,10 +1,10 @@
 {
   "name": "visual",
-  "description": "default_template_value",
+  "description": "A Power BI bar chart visual with a variance percentage bubble between two selected bars",
   "version": "1.0.0.0",
   "repository": {
-    "type": "default_template_value",
-    "url": "default_template_value"
+    "type": "git",
+    "url": "https://github.com/MohauNtholeng/PowerBI-Visual"
   },
   "license": "MIT",
   "scripts": {
@@ -16,7 +16,7 @@
   "dependencies": {
     "@types/d3": "7.4.3",
     "d3": "7.9.0",
-    "powerbi-visuals-api": "5.11.0",
+    "powerbi-visuals-api": "~5.3.0",
     "powerbi-visuals-utils-formattingmodel": "6.0.4"
   },
   "devDependencies": {
