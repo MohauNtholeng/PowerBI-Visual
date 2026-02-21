@@ -87,6 +87,36 @@
                     "type": {
                         "numeric": true
                     }
+                },
+                "showPair2": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "pair2FirstBarIndex": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "pair2SecondBarIndex": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "showPair3": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "pair3FirstBarIndex": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "pair3SecondBarIndex": {
+                    "type": {
+                        "numeric": true
+                    }
                 }
             }
         }
