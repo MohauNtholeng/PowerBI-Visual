@@ -33,28 +33,40 @@ import "./../style/visual.less";
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
+import IVisualHost = powerbi.extensibility.visual.IVisualHost;
+import ISelectionManager = powerbi.extensibility.ISelectionManager;
+import ISelectionId = powerbi.visuals.ISelectionId;
 import DataView = powerbi.DataView;
 
 import { VisualFormattingSettingsModel } from "./settings";
+
+const MAX_SELECTIONS = 6;
 
 interface BarDataPoint {
     category: string;
     value: number;
     index: number;
+    selectionId: ISelectionId;
 }
 
 export class Visual implements IVisual {
     private target: HTMLElement;
+    private host: IVisualHost;
     private formattingSettings: VisualFormattingSettingsModel;
     private formattingSettingsService: FormattingSettingsService;
     private svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
     private chartGroup: d3.Selection<SVGGElement, unknown, null, undefined>;
+    private selectionManager: ISelectionManager;
+    private selectedIndices: number[] = [];
+    private dataPoints: BarDataPoint[] = [];
 
     private readonly margin = { top: 40, right: 30, bottom: 60, left: 60 };
 
     constructor(options: VisualConstructorOptions) {
         this.formattingSettingsService = new FormattingSettingsService();
         this.target = options.element;
+        this.host = options.host;
+        this.selectionManager = this.host.createSelectionManager();
 
         this.svg = d3.select(this.target)
             .append("svg")
@@ -85,13 +97,25 @@ export class Visual implements IVisual {
             return;
         }
 
-        const dataPoints: BarDataPoint[] = categories.values.map((cat, i) => ({
+        const newDataPoints: BarDataPoint[] = categories.values.map((cat, i) => ({
             category: cat ? cat.toString() : "",
             value: values.values[i] !== null ? (values.values[i] as number) : 0,
-            index: i
+            index: i,
+            selectionId: this.host.createSelectionIdBuilder()
+                .withCategory(categories, i)
+                .createSelectionId()
         }));
 
-        this.renderChart(options, dataPoints);
+        // Clear selections when data length or category identities change
+        const prevCategories = this.dataPoints.map(d => d.category).join("\0");
+        const nextCategories = newDataPoints.map(d => d.category).join("\0");
+        if (newDataPoints.length !== this.dataPoints.length || prevCategories !== nextCategories) {
+            this.selectedIndices = [];
+            this.selectionManager.clear();
+        }
+
+        this.dataPoints = newDataPoints;
+        this.renderChart(options, this.dataPoints);
     }
 
     private clearChart(): void {
@@ -122,12 +146,6 @@ export class Visual implements IVisual {
         const settings = this.formattingSettings;
         const barSettings = settings.barSettingsCard;
         const bubbleSettings = settings.varianceBubbleCard;
-
-        // Determine which bars are "selected" for variance comparison
-        const rawFirst = Math.round(bubbleSettings.firstBarIndex.value) - 1;
-        const rawSecond = Math.round(bubbleSettings.secondBarIndex.value) - 1;
-        const selectedFirst = Math.max(0, Math.min(dataPoints.length - 1, rawFirst));
-        const selectedSecond = Math.max(0, Math.min(dataPoints.length - 1, rawSecond));
 
         // Scales
         const xScale = d3.scaleBand()
@@ -171,16 +189,50 @@ export class Visual implements IVisual {
             .attr("width", xScale.bandwidth())
             .attr("y", d => d.value >= 0 ? yScale(d.value) : yScale(0))
             .attr("height", d => Math.abs(yScale(d.value) - yScale(0)))
-            .attr("fill", d =>
-                (d.index === selectedFirst || d.index === selectedSecond) && bubbleSettings.show.value
-                    ? selectedColor
-                    : defaultBarColor
-            )
+            .attr("fill", d => this.selectedIndices.includes(d.index) ? selectedColor : defaultBarColor)
             .attr("rx", 2)
             .attr("ry", 2);
 
         bars.append("title")
             .text(d => `${d.category}: ${d.value}`);
+
+        // Click handler: toggle bar selection (up to MAX_SELECTIONS bars)
+        bars.on("click", (event: MouseEvent, d: BarDataPoint) => {
+            event.stopPropagation();
+            const pos = this.selectedIndices.indexOf(d.index);
+            if (pos >= 0) {
+                this.selectedIndices.splice(pos, 1);
+            } else if (this.selectedIndices.length < MAX_SELECTIONS) {
+                this.selectedIndices.push(d.index);
+            }
+
+            // Sync with Power BI selection manager for cross-filtering
+            const selectedIds = this.selectedIndices.map(i => this.dataPoints[i].selectionId);
+            if (selectedIds.length > 0) {
+                this.selectionManager.select(selectedIds);
+            } else {
+                this.selectionManager.clear();
+            }
+
+            // Update bar fill colors
+            this.chartGroup.selectAll<SVGRectElement, BarDataPoint>(".bar")
+                .attr("fill", dp => this.selectedIndices.includes(dp.index) ? selectedColor : defaultBarColor);
+
+            // Re-render variance bubbles for adjacent selected pairs
+            this.chartGroup.selectAll(".variance-bubble-group").remove();
+            if (bubbleSettings.show.value && this.selectedIndices.length >= 2) {
+                for (let i = 0; i < this.selectedIndices.length - 1; i++) {
+                    this.renderVarianceBubble(
+                        this.dataPoints,
+                        this.selectedIndices[i],
+                        this.selectedIndices[i + 1],
+                        xScale,
+                        yScale,
+                        bubbleSettings
+                    );
+                }
+            }
+        });
 
         // Data labels
         if (barSettings.showDataLabels.value) {
@@ -201,9 +253,18 @@ export class Visual implements IVisual {
                 .text(d => d3.format(".2s")(d.value));
         }
 
-        // Variance bubble between the two selected bars
-        if (bubbleSettings.show.value && selectedFirst !== selectedSecond) {
-            this.renderVarianceBubble(dataPoints, selectedFirst, selectedSecond, xScale, yScale, bubbleSettings);
+        // Variance bubbles for adjacent selected pairs; none shown until user selects bars
+        if (bubbleSettings.show.value && this.selectedIndices.length >= 2) {
+            for (let i = 0; i < this.selectedIndices.length - 1; i++) {
+                this.renderVarianceBubble(
+                    dataPoints,
+                    this.selectedIndices[i],
+                    this.selectedIndices[i + 1],
+                    xScale,
+                    yScale,
+                    bubbleSettings
+                );
+            }
         }
     }
 

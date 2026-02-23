@@ -98,27 +98,13 @@ class VarianceBubbleCard extends FormattingSettingsCard {
         value: 12
     });
 
-    firstBarIndex = new formattingSettings.NumUpDown({
-        name: "firstBarIndex",
-        displayName: "First Bar (1-based index)",
-        value: 1
-    });
-
-    secondBarIndex = new formattingSettings.NumUpDown({
-        name: "secondBarIndex",
-        displayName: "Second Bar (1-based index)",
-        value: 2
-    });
-
     name: string = "varianceBubble";
     displayName: string = "Variance Bubble";
     slices: Array<FormattingSettingsSlice> = [
         this.show,
         this.bubbleColor,
         this.negativeBubbleColor,
-        this.fontSize,
-        this.firstBarIndex,
-        this.secondBarIndex
+        this.fontSize
     ];
 }
 
