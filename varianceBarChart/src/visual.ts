@@ -297,43 +297,67 @@ export class Visual implements IVisual {
         // Position bubble vertically above the taller bar
         const topY1 = firstBar.value >= 0 ? yScale(firstBar.value) : yScale(0);
         const topY2 = secondBar.value >= 0 ? yScale(secondBar.value) : yScale(0);
-        const bubbleCy = Math.min(topY1, topY2) - 30;
+        const bubbleCy = Math.min(topY1, topY2) - 50;
 
-        const bubbleRadius = Math.max(22, fontSize * 1.8);
+        const bubbleRx = Math.max(35, fontSize * 2.8);
+        const bubbleRy = Math.max(18, fontSize * 1.4);
 
         const bubbleGroup = this.chartGroup.append("g").classed("variance-bubble-group", true);
 
-        // Connector lines from bubble to each bar top
-        const lineY = bubbleCy + bubbleRadius;
-        const connectorY1 = Math.min(topY1, lineY);
-        const connectorY2 = Math.min(topY2, lineY);
+        // L-shaped connectors: horizontal from bubble bottom to each bar, then vertical drop to bar top
+        const lineY = bubbleCy + bubbleRy;
 
+        // Horizontal segment to first bar
         bubbleGroup.append("line")
             .classed("variance-connector", true)
             .attr("x1", bubbleCx)
             .attr("y1", lineY)
             .attr("x2", x1)
-            .attr("y2", connectorY1)
+            .attr("y2", lineY)
             .attr("stroke", bubbleColor)
             .attr("stroke-width", 1.5)
             .attr("stroke-dasharray", "4,3");
 
+        // Vertical drop to first bar top
+        bubbleGroup.append("line")
+            .classed("variance-connector", true)
+            .attr("x1", x1)
+            .attr("y1", lineY)
+            .attr("x2", x1)
+            .attr("y2", topY1)
+            .attr("stroke", bubbleColor)
+            .attr("stroke-width", 1.5)
+            .attr("stroke-dasharray", "4,3");
+
+        // Horizontal segment to second bar
         bubbleGroup.append("line")
             .classed("variance-connector", true)
             .attr("x1", bubbleCx)
             .attr("y1", lineY)
             .attr("x2", x2)
-            .attr("y2", connectorY2)
+            .attr("y2", lineY)
             .attr("stroke", bubbleColor)
             .attr("stroke-width", 1.5)
             .attr("stroke-dasharray", "4,3");
 
-        // Bubble circle
-        bubbleGroup.append("circle")
+        // Vertical drop to second bar top
+        bubbleGroup.append("line")
+            .classed("variance-connector", true)
+            .attr("x1", x2)
+            .attr("y1", lineY)
+            .attr("x2", x2)
+            .attr("y2", topY2)
+            .attr("stroke", bubbleColor)
+            .attr("stroke-width", 1.5)
+            .attr("stroke-dasharray", "4,3");
+
+        // Bubble ellipse (horizontal oval)
+        bubbleGroup.append("ellipse")
             .classed("variance-bubble", true)
             .attr("cx", bubbleCx)
             .attr("cy", bubbleCy)
-            .attr("r", bubbleRadius)
+            .attr("rx", bubbleRx)
+            .attr("ry", bubbleRy)
             .attr("fill", bubbleColor)
             .attr("fill-opacity", 0.9)
             .attr("stroke", "#fff")
