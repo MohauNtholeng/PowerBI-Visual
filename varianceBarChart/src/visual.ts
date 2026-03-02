@@ -72,6 +72,19 @@ export class Visual implements IVisual {
             .append("svg")
             .classed("varianceBarChart", true);
 
+        // Define arrowhead marker for variance connector lines
+        const defs = this.svg.append("defs");
+        defs.append("marker")
+            .attr("id", "variance-arrow")
+            .attr("markerWidth", 10)
+            .attr("markerHeight", 7)
+            .attr("refX", 10)
+            .attr("refY", 3.5)
+            .attr("orient", "auto")
+            .append("polygon")
+            .attr("points", "0 0, 10 3.5, 0 7")
+            .attr("fill", "black");
+
         this.chartGroup = this.svg.append("g")
             .classed("chartGroup", true);
     }
@@ -294,9 +307,11 @@ export class Visual implements IVisual {
         const x2 = (xScale(secondBar.category) ?? 0) + xScale.bandwidth() / 2;
         const bubbleCx = (x1 + x2) / 2;
 
-        // Position bubble vertically above the taller bar
+        // Top of each bar
         const topY1 = firstBar.value >= 0 ? yScale(firstBar.value) : yScale(0);
         const topY2 = secondBar.value >= 0 ? yScale(secondBar.value) : yScale(0);
+
+        // Position bubble vertically above the taller bar
         const bubbleCy = Math.min(topY1, topY2) - 50;
 
         const bubbleRx = Math.max(35, fontSize * 2.8);
@@ -304,52 +319,16 @@ export class Visual implements IVisual {
 
         const bubbleGroup = this.chartGroup.append("g").classed("variance-bubble-group", true);
 
-        // L-shaped connectors: horizontal from bubble bottom to each bar, then vertical drop to bar top
-        const lineY = bubbleCy + bubbleRy;
-
-        // Horizontal segment to first bar
-        bubbleGroup.append("line")
-            .classed("variance-connector", true)
-            .attr("x1", bubbleCx)
-            .attr("y1", lineY)
-            .attr("x2", x1)
-            .attr("y2", lineY)
-            .attr("stroke", bubbleColor)
-            .attr("stroke-width", 1.5)
-            .attr("stroke-dasharray", "4,3");
-
-        // Vertical drop to first bar top
+        // Straight solid black line from first bar top to second bar top with arrowhead pointing at second bar
         bubbleGroup.append("line")
             .classed("variance-connector", true)
             .attr("x1", x1)
-            .attr("y1", lineY)
-            .attr("x2", x1)
-            .attr("y2", topY1)
-            .attr("stroke", bubbleColor)
-            .attr("stroke-width", 1.5)
-            .attr("stroke-dasharray", "4,3");
-
-        // Horizontal segment to second bar
-        bubbleGroup.append("line")
-            .classed("variance-connector", true)
-            .attr("x1", bubbleCx)
-            .attr("y1", lineY)
-            .attr("x2", x2)
-            .attr("y2", lineY)
-            .attr("stroke", bubbleColor)
-            .attr("stroke-width", 1.5)
-            .attr("stroke-dasharray", "4,3");
-
-        // Vertical drop to second bar top
-        bubbleGroup.append("line")
-            .classed("variance-connector", true)
-            .attr("x1", x2)
-            .attr("y1", lineY)
+            .attr("y1", topY1)
             .attr("x2", x2)
             .attr("y2", topY2)
-            .attr("stroke", bubbleColor)
-            .attr("stroke-width", 1.5)
-            .attr("stroke-dasharray", "4,3");
+            .attr("stroke", "black")
+            .attr("stroke-width", 2)
+            .attr("marker-end", "url(#variance-arrow)");
 
         // Bubble ellipse (horizontal oval)
         bubbleGroup.append("ellipse")
@@ -374,6 +353,12 @@ export class Visual implements IVisual {
             .style("font-weight", "bold")
             .style("fill", "#fff")
             .text(label);
+
+        // Double-click on the bubble group removes it
+        bubbleGroup.on("dblclick", (event: MouseEvent) => {
+            event.stopPropagation();
+            d3.select(event.currentTarget as Element).remove();
+        });
     }
 
     public getFormattingModel(): powerbi.visuals.FormattingModel {
