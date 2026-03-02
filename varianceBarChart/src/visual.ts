@@ -40,7 +40,7 @@ import DataView = powerbi.DataView;
 
 import { VisualFormattingSettingsModel } from "./settings";
 
-const MAX_SELECTIONS = 6;
+const MAX_SELECTIONS = 2;
 
 interface BarDataPoint {
     category: string;
@@ -209,13 +209,18 @@ export class Visual implements IVisual {
         bars.append("title")
             .text(d => `${d.category}: ${d.value}`);
 
-        // Click handler: toggle bar selection (up to MAX_SELECTIONS bars)
+        // Click handler: toggle bar selection (rolling window of MAX_SELECTIONS=2 bars)
         bars.on("click", (event: MouseEvent, d: BarDataPoint) => {
             event.stopPropagation();
             const pos = this.selectedIndices.indexOf(d.index);
             if (pos >= 0) {
+                // Deselect this bar
                 this.selectedIndices.splice(pos, 1);
-            } else if (this.selectedIndices.length < MAX_SELECTIONS) {
+            } else {
+                // If already at max, remove the oldest selection first
+                if (this.selectedIndices.length >= MAX_SELECTIONS) {
+                    this.selectedIndices.splice(0, 1);
+                }
                 this.selectedIndices.push(d.index);
             }
 
@@ -231,19 +236,17 @@ export class Visual implements IVisual {
             this.chartGroup.selectAll<SVGRectElement, BarDataPoint>(".bar")
                 .attr("fill", dp => this.selectedIndices.includes(dp.index) ? selectedColor : defaultBarColor);
 
-            // Re-render variance bubbles for adjacent selected pairs
+            // Re-render variance bubble for the selected pair
             this.chartGroup.selectAll(".variance-bubble-group").remove();
-            if (bubbleSettings.show.value && this.selectedIndices.length >= 2) {
-                for (let i = 0; i < this.selectedIndices.length - 1; i++) {
-                    this.renderVarianceBubble(
-                        this.dataPoints,
-                        this.selectedIndices[i],
-                        this.selectedIndices[i + 1],
-                        xScale,
-                        yScale,
-                        bubbleSettings
-                    );
-                }
+            if (bubbleSettings.show.value && this.selectedIndices.length === 2) {
+                this.renderVarianceBubble(
+                    this.dataPoints,
+                    this.selectedIndices[0],
+                    this.selectedIndices[1],
+                    xScale,
+                    yScale,
+                    bubbleSettings
+                );
             }
         });
 
@@ -266,18 +269,16 @@ export class Visual implements IVisual {
                 .text(d => d3.format(".2s")(d.value));
         }
 
-        // Variance bubbles for adjacent selected pairs; none shown until user selects bars
-        if (bubbleSettings.show.value && this.selectedIndices.length >= 2) {
-            for (let i = 0; i < this.selectedIndices.length - 1; i++) {
-                this.renderVarianceBubble(
-                    dataPoints,
-                    this.selectedIndices[i],
-                    this.selectedIndices[i + 1],
-                    xScale,
-                    yScale,
-                    bubbleSettings
-                );
-            }
+        // Variance bubble for the selected pair; none shown until user selects exactly 2 bars
+        if (bubbleSettings.show.value && this.selectedIndices.length === 2) {
+            this.renderVarianceBubble(
+                dataPoints,
+                this.selectedIndices[0],
+                this.selectedIndices[1],
+                xScale,
+                yScale,
+                bubbleSettings
+            );
         }
     }
 
@@ -319,15 +320,14 @@ export class Visual implements IVisual {
 
         const bubbleGroup = this.chartGroup.append("g").classed("variance-bubble-group", true);
 
-        // Straight solid black line from first bar top to second bar top with arrowhead pointing at second bar
-        bubbleGroup.append("line")
+        // Bracket-shaped connector: up from first bar top → horizontal → down to second bar top, with arrowhead at end
+        const bracketPath = `M ${x1} ${topY1} L ${x1} ${bubbleCy} L ${x2} ${bubbleCy} L ${x2} ${topY2}`;
+        bubbleGroup.append("path")
             .classed("variance-connector", true)
-            .attr("x1", x1)
-            .attr("y1", topY1)
-            .attr("x2", x2)
-            .attr("y2", topY2)
+            .attr("d", bracketPath)
             .attr("stroke", "black")
             .attr("stroke-width", 2)
+            .attr("fill", "none")
             .attr("marker-end", "url(#variance-arrow)");
 
         // Bubble ellipse (horizontal oval)
