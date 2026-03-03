@@ -40,8 +40,6 @@ import DataView = powerbi.DataView;
 
 import { VisualFormattingSettingsModel } from "./settings";
 
-const MAX_SELECTIONS = 2;
-
 interface BarDataPoint {
     category: string;
     value: number;
@@ -59,6 +57,7 @@ export class Visual implements IVisual {
     private selectionManager: ISelectionManager;
     private selectedIndices: number[] = [];
     private dataPoints: BarDataPoint[] = [];
+    private variancePairs: [number, number][] = [];
 
     private readonly margin = { top: 40, right: 30, bottom: 60, left: 60 };
 
@@ -124,6 +123,7 @@ export class Visual implements IVisual {
         const nextCategories = newDataPoints.map(d => d.category).join("\0");
         if (newDataPoints.length !== this.dataPoints.length || prevCategories !== nextCategories) {
             this.selectedIndices = [];
+            this.variancePairs = [];
             this.selectionManager.clear();
         }
 
@@ -209,7 +209,7 @@ export class Visual implements IVisual {
         bars.append("title")
             .text(d => `${d.category}: ${d.value}`);
 
-        // Click handler: toggle bar selection (rolling window of MAX_SELECTIONS=2 bars)
+        // Click handler: select up to 2 bars; when a pair is complete, lock it in as a variance and reset selection
         bars.on("click", (event: MouseEvent, d: BarDataPoint) => {
             event.stopPropagation();
             const pos = this.selectedIndices.indexOf(d.index);
@@ -217,11 +217,19 @@ export class Visual implements IVisual {
                 // Deselect this bar
                 this.selectedIndices.splice(pos, 1);
             } else {
-                // If already at max, remove the oldest selection first
-                if (this.selectedIndices.length >= MAX_SELECTIONS) {
-                    this.selectedIndices.splice(0, 1);
-                }
                 this.selectedIndices.push(d.index);
+
+                // When a second bar is chosen, lock in the variance pair and reset selection
+                if (this.selectedIndices.length === 2) {
+                    const [f, s] = [this.selectedIndices[0], this.selectedIndices[1]];
+                    const alreadyExists = this.variancePairs.some(
+                        ([pf, ps]) => (pf === f && ps === s) || (pf === s && ps === f)
+                    );
+                    if (!alreadyExists) {
+                        this.variancePairs.push([f, s]);
+                    }
+                    this.selectedIndices = [];
+                }
             }
 
             // Sync with Power BI selection manager for cross-filtering
@@ -236,17 +244,19 @@ export class Visual implements IVisual {
             this.chartGroup.selectAll<SVGRectElement, BarDataPoint>(".bar")
                 .attr("fill", dp => this.selectedIndices.includes(dp.index) ? selectedColor : defaultBarColor);
 
-            // Re-render variance bubble for the selected pair
+            // Re-render all locked-in variance bubbles
             this.chartGroup.selectAll(".variance-bubble-group").remove();
-            if (bubbleSettings.show.value && this.selectedIndices.length === 2) {
-                this.renderVarianceBubble(
-                    this.dataPoints,
-                    this.selectedIndices[0],
-                    this.selectedIndices[1],
-                    xScale,
-                    yScale,
-                    bubbleSettings
-                );
+            if (bubbleSettings.show.value) {
+                this.variancePairs.forEach(([firstIdx, secondIdx]) => {
+                    this.renderVarianceBubble(
+                        this.dataPoints,
+                        firstIdx,
+                        secondIdx,
+                        xScale,
+                        yScale,
+                        bubbleSettings
+                    );
+                });
             }
         });
 
@@ -269,16 +279,18 @@ export class Visual implements IVisual {
                 .text(d => d3.format(".2s")(d.value));
         }
 
-        // Variance bubble for the selected pair; none shown until user selects exactly 2 bars
-        if (bubbleSettings.show.value && this.selectedIndices.length === 2) {
-            this.renderVarianceBubble(
-                dataPoints,
-                this.selectedIndices[0],
-                this.selectedIndices[1],
-                xScale,
-                yScale,
-                bubbleSettings
-            );
+        // Render all locked-in variance pairs; none shown until user has completed at least one pair
+        if (bubbleSettings.show.value && this.variancePairs.length > 0) {
+            this.variancePairs.forEach(([firstIdx, secondIdx]) => {
+                this.renderVarianceBubble(
+                    dataPoints,
+                    firstIdx,
+                    secondIdx,
+                    xScale,
+                    yScale,
+                    bubbleSettings
+                );
+            });
         }
     }
 
@@ -354,9 +366,15 @@ export class Visual implements IVisual {
             .style("fill", "#fff")
             .text(label);
 
-        // Double-click on the bubble group removes it
+        // Double-click on the bubble group removes it and its stored pair
         bubbleGroup.on("dblclick", (event: MouseEvent) => {
             event.stopPropagation();
+            const pairIndex = this.variancePairs.findIndex(
+                ([f, s]) => (f === firstIdx && s === secondIdx) || (f === secondIdx && s === firstIdx)
+            );
+            if (pairIndex >= 0) {
+                this.variancePairs.splice(pairIndex, 1);
+            }
             d3.select(event.currentTarget as Element).remove();
         });
     }
