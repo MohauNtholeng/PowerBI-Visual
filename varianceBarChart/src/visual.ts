@@ -67,6 +67,8 @@ export class Visual implements IVisual {
     private static readonly LABEL_ABOVE_BAR_PADDING = 8;
     /** Minimum clearance (pixels) from the bar top when there is no data label. */
     private static readonly MIN_BAR_CLEARANCE = 4;
+    /** Horizontal gap (pixels) between adjacent arrow legs that share the same bar. */
+    private static readonly ARROW_SPREAD_OFFSET = 10;
 
     constructor(options: VisualConstructorOptions) {
         this.formattingSettingsService = new FormattingSettingsService();
@@ -256,6 +258,7 @@ export class Visual implements IVisual {
             this.chartGroup.selectAll(".variance-bubble-group").remove();
             if (bubbleSettings.show.value) {
                 const pairLevels = this.computePairLevels(this.variancePairs);
+                const pairOffsets = this.computeBarAttachmentOffsets(this.variancePairs);
                 this.variancePairs.forEach(([firstIdx, secondIdx], pairIndex) => {
                     this.renderVarianceBubble(
                         this.dataPoints,
@@ -265,7 +268,9 @@ export class Visual implements IVisual {
                         yScale,
                         bubbleSettings,
                         barSettings,
-                        pairLevels[pairIndex]
+                        pairLevels[pairIndex],
+                        pairOffsets[pairIndex][0],
+                        pairOffsets[pairIndex][1]
                     );
                 });
             }
@@ -293,6 +298,7 @@ export class Visual implements IVisual {
         // Render all locked-in variance pairs; none shown until user has completed at least one pair
         if (bubbleSettings.show.value && this.variancePairs.length > 0) {
             const pairLevels = this.computePairLevels(this.variancePairs);
+            const pairOffsets = this.computeBarAttachmentOffsets(this.variancePairs);
             this.variancePairs.forEach(([firstIdx, secondIdx], pairIndex) => {
                 this.renderVarianceBubble(
                     dataPoints,
@@ -302,7 +308,9 @@ export class Visual implements IVisual {
                     yScale,
                     bubbleSettings,
                     barSettings,
-                    pairLevels[pairIndex]
+                    pairLevels[pairIndex],
+                    pairOffsets[pairIndex][0],
+                    pairOffsets[pairIndex][1]
                 );
             });
         }
@@ -316,7 +324,9 @@ export class Visual implements IVisual {
         yScale: d3.ScaleLinear<number, number>,
         bubbleSettings: VisualFormattingSettingsModel["varianceBubbleCard"],
         barSettings: VisualFormattingSettingsModel["barSettingsCard"],
-        level: number
+        level: number,
+        x1Offset: number = 0,
+        x2Offset: number = 0
     ): void {
         const firstBar = dataPoints[firstIdx];
         const secondBar = dataPoints[secondIdx];
@@ -334,10 +344,14 @@ export class Visual implements IVisual {
         const showDataLabels = barSettings.showDataLabels.value;
         const labelFontSize = barSettings.labelFontSize.value ?? 11;
 
-        // Position bubble horizontally between the two bars
+        // Base centre of each bar; bubble midpoint stays between bar centres regardless of spread
         const x1 = (xScale(firstBar.category) ?? 0) + xScale.bandwidth() / 2;
         const x2 = (xScale(secondBar.category) ?? 0) + xScale.bandwidth() / 2;
         const bubbleCx = (x1 + x2) / 2;
+
+        // Attachment points on the bar tops are spread so multiple arrows don't overlap
+        const ax1 = x1 + x1Offset;
+        const ax2 = x2 + x2Offset;
 
         // Compute bar tops, then shift up past any data label so arrows never overlap the label
         const rawTopY1 = firstBar.value >= 0 ? yScale(firstBar.value) : yScale(0);
@@ -357,7 +371,7 @@ export class Visual implements IVisual {
         const bubbleGroup = this.chartGroup.append("g").classed("variance-bubble-group", true);
 
         // Bracket-shaped connector: up from first bar top → horizontal → down to second bar top, with arrowhead at end
-        const bracketPath = `M ${x1} ${topY1} L ${x1} ${bubbleCy} L ${x2} ${bubbleCy} L ${x2} ${topY2}`;
+        const bracketPath = `M ${ax1} ${topY1} L ${ax1} ${bubbleCy} L ${ax2} ${bubbleCy} L ${ax2} ${topY2}`;
         bubbleGroup.append("path")
             .classed("variance-connector", true)
             .attr("d", bracketPath)
@@ -423,6 +437,40 @@ export class Visual implements IVisual {
             levels[i] = maxOverlapLevel + 1;
         }
         return levels;
+    }
+
+    /**
+     * For each pair, compute horizontal offsets [x1Offset, x2Offset] so that when
+     * multiple arrows attach to the same bar they are spread side-by-side instead of
+     * overlapping on the bar centre.
+     */
+    private computeBarAttachmentOffsets(pairs: [number, number][]): [number, number][] {
+        // Build a map: barIndex -> ordered list of pair indices that touch this bar
+        const barPairMap = new Map<number, number[]>();
+        pairs.forEach(([f, s], pairIdx) => {
+            if (!barPairMap.has(f)) barPairMap.set(f, []);
+            if (!barPairMap.has(s)) barPairMap.set(s, []);
+            barPairMap.get(f)!.push(pairIdx);
+            barPairMap.get(s)!.push(pairIdx);
+        });
+
+        const offsets: [number, number][] = pairs.map(() => [0, 0]);
+
+        barPairMap.forEach((pairIndices, barIdx) => {
+            const count = pairIndices.length;
+            if (count <= 1) return; // single connection – no spread needed
+            pairIndices.forEach((pairIdx, position) => {
+                const offset = (position - (count - 1) / 2) * Visual.ARROW_SPREAD_OFFSET;
+                const [f, _s] = pairs[pairIdx];
+                if (f === barIdx) {
+                    offsets[pairIdx][0] = offset;
+                } else {
+                    offsets[pairIdx][1] = offset;
+                }
+            });
+        });
+
+        return offsets;
     }
 
     private saveVariancePairs(): void {
