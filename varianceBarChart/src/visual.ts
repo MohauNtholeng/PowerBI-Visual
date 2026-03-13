@@ -61,6 +61,13 @@ export class Visual implements IVisual {
 
     private readonly margin = { top: 40, right: 30, bottom: 60, left: 60 };
 
+    /** Pixels each additional overlapping variance level adds to the bracket height. */
+    private static readonly LEVEL_SPACING = 40;
+    /** Extra pixels above a data label before the connector starts/ends. */
+    private static readonly LABEL_ABOVE_BAR_PADDING = 8;
+    /** Minimum clearance (pixels) from the bar top when there is no data label. */
+    private static readonly MIN_BAR_CLEARANCE = 4;
+
     constructor(options: VisualConstructorOptions) {
         this.formattingSettingsService = new FormattingSettingsService();
         this.target = options.element;
@@ -75,13 +82,13 @@ export class Visual implements IVisual {
         const defs = this.svg.append("defs");
         defs.append("marker")
             .attr("id", "variance-arrow")
-            .attr("markerWidth", 10)
-            .attr("markerHeight", 7)
-            .attr("refX", 10)
-            .attr("refY", 3.5)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 4.5)
+            .attr("refX", 6)
+            .attr("refY", 2.25)
             .attr("orient", "auto")
             .append("polygon")
-            .attr("points", "0 0, 10 3.5, 0 7")
+            .attr("points", "0 0, 6 2.25, 0 4.5")
             .attr("fill", "black");
 
         this.chartGroup = this.svg.append("g")
@@ -118,13 +125,13 @@ export class Visual implements IVisual {
                 .createSelectionId()
         }));
 
-        // Clear selections when data length or category identities change
+        // Clear selections when data length or category identities change; restore persisted variance pairs
         const prevCategories = this.dataPoints.map(d => d.category).join("\0");
         const nextCategories = newDataPoints.map(d => d.category).join("\0");
         if (newDataPoints.length !== this.dataPoints.length || prevCategories !== nextCategories) {
             this.selectedIndices = [];
-            this.variancePairs = [];
             this.selectionManager.clear();
+            this.variancePairs = this.loadVariancePairs(nextCategories);
         }
 
         this.dataPoints = newDataPoints;
@@ -227,6 +234,7 @@ export class Visual implements IVisual {
                     );
                     if (!alreadyExists) {
                         this.variancePairs.push([f, s]);
+                        this.saveVariancePairs();
                     }
                     this.selectedIndices = [];
                 }
@@ -247,14 +255,17 @@ export class Visual implements IVisual {
             // Re-render all locked-in variance bubbles
             this.chartGroup.selectAll(".variance-bubble-group").remove();
             if (bubbleSettings.show.value) {
-                this.variancePairs.forEach(([firstIdx, secondIdx]) => {
+                const pairLevels = this.computePairLevels(this.variancePairs);
+                this.variancePairs.forEach(([firstIdx, secondIdx], pairIndex) => {
                     this.renderVarianceBubble(
                         this.dataPoints,
                         firstIdx,
                         secondIdx,
                         xScale,
                         yScale,
-                        bubbleSettings
+                        bubbleSettings,
+                        barSettings,
+                        pairLevels[pairIndex]
                     );
                 });
             }
@@ -281,14 +292,17 @@ export class Visual implements IVisual {
 
         // Render all locked-in variance pairs; none shown until user has completed at least one pair
         if (bubbleSettings.show.value && this.variancePairs.length > 0) {
-            this.variancePairs.forEach(([firstIdx, secondIdx]) => {
+            const pairLevels = this.computePairLevels(this.variancePairs);
+            this.variancePairs.forEach(([firstIdx, secondIdx], pairIndex) => {
                 this.renderVarianceBubble(
                     dataPoints,
                     firstIdx,
                     secondIdx,
                     xScale,
                     yScale,
-                    bubbleSettings
+                    bubbleSettings,
+                    barSettings,
+                    pairLevels[pairIndex]
                 );
             });
         }
@@ -300,7 +314,9 @@ export class Visual implements IVisual {
         secondIdx: number,
         xScale: d3.ScaleBand<string>,
         yScale: d3.ScaleLinear<number, number>,
-        bubbleSettings: VisualFormattingSettingsModel["varianceBubbleCard"]
+        bubbleSettings: VisualFormattingSettingsModel["varianceBubbleCard"],
+        barSettings: VisualFormattingSettingsModel["barSettingsCard"],
+        level: number
     ): void {
         const firstBar = dataPoints[firstIdx];
         const secondBar = dataPoints[secondIdx];
@@ -315,17 +331,25 @@ export class Visual implements IVisual {
         const bubbleColor = isPositive ? positiveColor : negativeColor;
         const fontSize = bubbleSettings.fontSize.value ?? 12;
 
+        const showDataLabels = barSettings.showDataLabels.value;
+        const labelFontSize = barSettings.labelFontSize.value ?? 11;
+
         // Position bubble horizontally between the two bars
         const x1 = (xScale(firstBar.category) ?? 0) + xScale.bandwidth() / 2;
         const x2 = (xScale(secondBar.category) ?? 0) + xScale.bandwidth() / 2;
         const bubbleCx = (x1 + x2) / 2;
 
-        // Top of each bar
-        const topY1 = firstBar.value >= 0 ? yScale(firstBar.value) : yScale(0);
-        const topY2 = secondBar.value >= 0 ? yScale(secondBar.value) : yScale(0);
+        // Compute bar tops, then shift up past any data label so arrows never overlap the label
+        const rawTopY1 = firstBar.value >= 0 ? yScale(firstBar.value) : yScale(0);
+        const rawTopY2 = secondBar.value >= 0 ? yScale(secondBar.value) : yScale(0);
+        // For positive bars the label sits above the bar top; push the connector start/end above it
+        const labelClearance1 = (showDataLabels && firstBar.value >= 0) ? labelFontSize + Visual.LABEL_ABOVE_BAR_PADDING : Visual.MIN_BAR_CLEARANCE;
+        const labelClearance2 = (showDataLabels && secondBar.value >= 0) ? labelFontSize + Visual.LABEL_ABOVE_BAR_PADDING : Visual.MIN_BAR_CLEARANCE;
+        const topY1 = rawTopY1 - labelClearance1;
+        const topY2 = rawTopY2 - labelClearance2;
 
-        // Position bubble vertically above the taller bar
-        const bubbleCy = Math.min(topY1, topY2) - 50;
+        // Position bubble vertically above the taller bar, offset by level to avoid overlap
+        const bubbleCy = Math.min(topY1, topY2) - 50 - level * Visual.LEVEL_SPACING;
 
         const bubbleRx = Math.max(35, fontSize * 2.8);
         const bubbleRy = Math.max(18, fontSize * 1.4);
@@ -374,9 +398,46 @@ export class Visual implements IVisual {
             );
             if (pairIndex >= 0) {
                 this.variancePairs.splice(pairIndex, 1);
+                this.saveVariancePairs();
             }
             d3.select(event.currentTarget as Element).remove();
         });
+    }
+
+    /** Assign a stagger level to each pair so overlapping connectors don't draw on top of each other. */
+    private computePairLevels(pairs: [number, number][]): number[] {
+        const levels: number[] = new Array(pairs.length).fill(0);
+        for (let i = 0; i < pairs.length; i++) {
+            const [f1, s1] = pairs[i];
+            const minI = Math.min(f1, s1);
+            const maxI = Math.max(f1, s1);
+            let maxOverlapLevel = -1;
+            for (let j = 0; j < i; j++) {
+                const [f2, s2] = pairs[j];
+                const minJ = Math.min(f2, s2);
+                const maxJ = Math.max(f2, s2);
+                if (minI <= maxJ && minJ <= maxI) {
+                    maxOverlapLevel = Math.max(maxOverlapLevel, levels[j]);
+                }
+            }
+            levels[i] = maxOverlapLevel + 1;
+        }
+        return levels;
+    }
+
+    private saveVariancePairs(): void {
+        const key = "pbiviz_variance_pairs_" + this.dataPoints.map(d => d.category).join("\0");
+        try {
+            localStorage.setItem(key, JSON.stringify(this.variancePairs));
+        } catch (e) { /* ignore storage errors */ }
+    }
+
+    private loadVariancePairs(categoriesKey: string): [number, number][] {
+        try {
+            const stored = localStorage.getItem("pbiviz_variance_pairs_" + categoriesKey);
+            if (stored) return JSON.parse(stored) as [number, number][];
+        } catch (e) { /* ignore storage errors */ }
+        return [];
     }
 
     public getFormattingModel(): powerbi.visuals.FormattingModel {
